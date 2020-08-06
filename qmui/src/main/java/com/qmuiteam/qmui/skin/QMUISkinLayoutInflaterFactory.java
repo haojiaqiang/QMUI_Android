@@ -52,6 +52,13 @@ public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
         mOriginLayoutInflater = originLayoutInflater;
     }
 
+    public QMUISkinLayoutInflaterFactory cloneForLayoutInflaterIfNeeded(LayoutInflater layoutInflater){
+        if(mOriginLayoutInflater.getContext() == layoutInflater.getContext()){
+            return this;
+        }
+        return new QMUISkinLayoutInflaterFactory(mActivityWeakReference.get(), layoutInflater);
+    }
+
     @Override
     public View onCreateView(View parent, String name, Context context, AttributeSet attrs) {
         Activity activity = mActivityWeakReference.get();
@@ -64,7 +71,7 @@ public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
             try{
                 if (!name.contains(".")) {
                     if(sSuccessClassNamePrefixMap.containsKey(name)){
-                        view = LayoutInflater.from(context)
+                        view = mOriginLayoutInflater
                                 .createView(name, sSuccessClassNamePrefixMap.get(name), attrs);
                     }else{
                         for (String prefix : sClassPrefixList) {
@@ -76,7 +83,7 @@ public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
                         }
                     }
                 }else{
-                    view = mOriginLayoutInflater.createView(name, null, attrs);
+                    view = mOriginLayoutInflater.cloneInContext(context).createView(name, null, attrs);
                 }
             }catch (ClassNotFoundException ignore){
 
@@ -155,6 +162,18 @@ public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
                 builder.moreBgColor(id);
             }else if(attr == R.styleable.QMUISkinDef_qmui_skin_more_text_color){
                 builder.moreTextColor(id);
+            }else if(attr == R.styleable.QMUISkinDef_qmui_skin_hint_color){
+                builder.hintColor(id);
+            }else if(attr == R.styleable.QMUISkinDef_qmui_skin_text_compound_tint_color){
+                builder.textCompoundTintColor(id);
+            }else if(attr == R.styleable.QMUISkinDef_qmui_skin_text_compound_src_left){
+                builder.textCompoundLeftSrc(id);
+            }else if(attr == R.styleable.QMUISkinDef_qmui_skin_text_compound_src_top){
+                builder.textCompoundTopSrc(id);
+            }else if(attr == R.styleable.QMUISkinDef_qmui_skin_text_compound_src_right){
+                builder.textCompoundRightSrc(id);
+            }else if(attr == R.styleable.QMUISkinDef_qmui_skin_text_compound_src_bottom){
+                builder.textCompoundBottomSrc(id);
             }
         }
         a.recycle();

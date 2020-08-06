@@ -27,8 +27,15 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.animation.Interpolator;
 import android.widget.FrameLayout;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.collection.SimpleArrayMap;
+import androidx.core.view.GravityCompat;
+import androidx.core.view.ViewCompat;
 
 import com.qmuiteam.qmui.QMUILog;
 import com.qmuiteam.qmui.R;
@@ -43,10 +50,7 @@ import com.qmuiteam.qmui.util.QMUILangHelper;
 import com.qmuiteam.qmui.util.QMUIResHelper;
 import com.qmuiteam.qmui.widget.roundwidget.QMUIRoundButton;
 
-import androidx.annotation.NonNull;
-import androidx.collection.SimpleArrayMap;
-import androidx.core.view.GravityCompat;
-import androidx.core.view.ViewCompat;
+import org.jetbrains.annotations.NotNull;
 
 public class QMUITabView extends FrameLayout implements IQMUISkinHandlerView {
     private static final String TAG = "QMUITabView";
@@ -77,6 +81,12 @@ public class QMUITabView extends FrameLayout implements IQMUISkinHandlerView {
 
     public QMUITabView(@NonNull Context context) {
         super(context);
+        
+        // 使得每个tab可被诸如TalkBack等屏幕阅读器聚焦
+        // 这样视力受损用户（如盲人、低、弱视力）就能与tab交互
+        this.setFocusable(true);
+        this.setFocusableInTouchMode(true);
+        
         setWillNotDraw(false);
         mCollapsingTextHelper = new QMUICollapsingTextHelper(this, 1f);
         mGestureDetector = new GestureDetector(getContext(), new GestureDetector.SimpleOnGestureListener() {
@@ -130,10 +140,14 @@ public class QMUITabView extends FrameLayout implements IQMUISkinHandlerView {
     public void bind(QMUITab tab) {
         mCollapsingTextHelper.setTextSize(tab.normalTextSize, tab.selectedTextSize, false);
         mCollapsingTextHelper.setTypeface(tab.normalTypeface, tab.selectedTypeface, false);
+        mCollapsingTextHelper.setTypefaceUpdateAreaPercent(tab.typefaceUpdateAreaPercent);
         int gravity = Gravity.LEFT | Gravity.TOP;
         mCollapsingTextHelper.setGravity(gravity, gravity, false);
         mCollapsingTextHelper.setText(tab.getText());
         mTab = tab;
+        if(tab.tabIcon != null){
+            tab.tabIcon.setCallback(this);
+        }
         boolean hasRedPoint = mTab.signCount == QMUITab.RED_POINT_SIGN_COUNT;
         boolean hasSignCount = mTab.signCount > 0;
         if (hasRedPoint || hasSignCount) {
@@ -144,14 +158,13 @@ public class QMUITabView extends FrameLayout implements IQMUISkinHandlerView {
                 mSignCountView.setText(
                         QMUILangHelper.formatNumberToLimitedDigits(mTab.signCount, mTab.signCountDigits));
                 mSignCountView.setMinWidth(QMUIResHelper.getAttrDimen(getContext(),
-                        R.attr.qmui_tab_sign_count_view_minSize_with_text));
-                signCountLp.width = LayoutParams.WRAP_CONTENT;
+                        R.attr.qmui_tab_sign_count_view_min_size_with_text));
                 signCountLp.height = QMUIResHelper.getAttrDimen(getContext(),
-                        R.attr.qmui_tab_sign_count_view_minSize_with_text);
+                        R.attr.qmui_tab_sign_count_view_min_size_with_text);
             } else {
                 mSignCountView.setText(null);
                 int redPointSize = QMUIResHelper.getAttrDimen(getContext(),
-                        R.attr.qmui_tab_sign_count_view_minSize);
+                        R.attr.qmui_tab_sign_count_view_min_size);
                 signCountLp.width = redPointSize;
                 signCountLp.height = redPointSize;
             }
@@ -171,9 +184,8 @@ public class QMUITabView extends FrameLayout implements IQMUISkinHandlerView {
         QMUITabIcon tabIcon = mTab.getTabIcon();
         if (tabIcon != null) {
             tabIcon.setSelectFraction(fraction,
-                    QMUIColorHelper.computeColor(
-                            QMUISkinHelper.getSkinColor(this, mTab.normalColorAttr),
-                            QMUISkinHelper.getSkinColor(this, mTab.selectedColorAttr), fraction));
+                    QMUIColorHelper.computeColor(mTab.getNormalColor(this),
+                            mTab.getSelectColor(this), fraction));
         }
         updateCurrentInfo(fraction);
         mCollapsingTextHelper.setExpansionFraction(1 - fraction);
@@ -308,6 +320,11 @@ public class QMUITabView extends FrameLayout implements IQMUISkinHandlerView {
                         mTab.getIconTextGap() +
                         mTab.getNormalTabIconWidth() * mTab.getSelectedTabIconScale());
             }
+            if(mSignCountView != null && mSignCountView.getVisibility() != View.GONE){
+                mSignCountView.measure(0, 0);
+                widthSize = Math.max(widthSize,
+                        widthSize + mSignCountView.getMeasuredWidth() + mTab.signCountLeftMarginWithIconOrText);
+            }
             useWidthMeasureSpec = MeasureSpec.makeMeasureSpec(widthSize, MeasureSpec.EXACTLY);
         }
         if (heightMode == MeasureSpec.AT_MOST) {
@@ -382,7 +399,15 @@ public class QMUITabView extends FrameLayout implements IQMUISkinHandlerView {
             bottom = (int) (mCurrentIconTop);
         }
         Point point = new Point(left, bottom);
-        point.offset(mTab.signCountLeftMarginWithIconOrText, mTab.signCountBottomMarginWithIconOrText);
+        int verticalOffset = mTab.signCountBottomMarginWithIconOrText;
+        if(verticalOffset == QMUITab.SIGN_COUNT_VIEW_LAYOUT_VERTICAL_CENTER && mSignCountView != null){
+            point.y = getMeasuredHeight() - (getMeasuredHeight() - mSignCountView.getMeasuredHeight()) / 2;
+            point.offset(mTab.signCountLeftMarginWithIconOrText, 0);
+        }else{
+            point.offset(mTab.signCountLeftMarginWithIconOrText, verticalOffset);
+        }
+
+
         return point;
     }
 
@@ -640,9 +665,24 @@ public class QMUITabView extends FrameLayout implements IQMUISkinHandlerView {
     }
 
     @Override
+    public void invalidateDrawable(@NonNull Drawable drawable) {
+        invalidate();
+    }
+
+    @Override
     public final void draw(Canvas canvas) {
         onDrawTab(canvas);
         super.draw(canvas);
+    }
+    
+    @Override
+    public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
+        super.onInitializeAccessibilityNodeInfo(info);
+
+        // 给每个tab添加文本标签
+        // 使得TalkBack等屏幕阅读器focus 到 tab上时可将tab的文本通过TTS朗读出来
+        // 这样视力受损用户（如盲人、低、弱视力）就能和widget交互
+        info.setContentDescription(mTab.getText());
     }
 
     protected void onDrawTab(Canvas canvas) {
@@ -665,7 +705,7 @@ public class QMUITabView extends FrameLayout implements IQMUISkinHandlerView {
     }
 
     @Override
-    public void handle(QMUISkinManager manager, int skinIndex, Resources.Theme theme, SimpleArrayMap<String, Integer> attrs) {
+    public void handle(@NotNull QMUISkinManager manager, int skinIndex, @NotNull Resources.Theme theme, @Nullable SimpleArrayMap<String, Integer> attrs) {
         if (mTab != null) {
             updateSkinInfo(mTab);
             invalidate();
@@ -673,8 +713,8 @@ public class QMUITabView extends FrameLayout implements IQMUISkinHandlerView {
     }
 
     private void updateSkinInfo(QMUITab tab) {
-        int normalColor = QMUISkinHelper.getSkinColor(this, tab.normalColorAttr);
-        int selectedColor = QMUISkinHelper.getSkinColor(this, tab.selectedColorAttr);
+        int normalColor = tab.getNormalColor(this);
+        int selectedColor = tab.getSelectColor(this);
         mCollapsingTextHelper.setTextColor(
                 ColorStateList.valueOf(normalColor),
                 ColorStateList.valueOf(selectedColor),

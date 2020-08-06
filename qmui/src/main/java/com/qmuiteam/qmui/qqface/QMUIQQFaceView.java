@@ -35,6 +35,10 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+
 import com.qmuiteam.qmui.QMUILog;
 import com.qmuiteam.qmui.R;
 import com.qmuiteam.qmui.link.ITouchableSpan;
@@ -45,10 +49,6 @@ import com.qmuiteam.qmui.util.QMUILangHelper;
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.List;
-
-import androidx.annotation.ColorInt;
-import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 
 import static android.view.View.MeasureSpec.AT_MOST;
 
@@ -711,12 +711,8 @@ public class QMUIQQFaceView extends View {
             if (element.getType() == QMUIQQFaceCompiler.ElementType.DRAWABLE) {
                 if (mCurrentCalWidth + mQQFaceSize > widthEnd) {
                     gotoCalNextLine(widthStart);
-                    mCurrentCalWidth += mQQFaceSize;
-                } else if (mCurrentCalWidth + mQQFaceSize == widthEnd) {
-                    gotoCalNextLine(widthStart);
-                } else {
-                    mCurrentCalWidth += mQQFaceSize;
                 }
+                mCurrentCalWidth += mQQFaceSize;
                 if (widthEnd - widthStart < mQQFaceSize) {
                     // 一个表情的宽度都容不下
                     mJumpHandleMeasureAndDraw = true;
@@ -830,8 +826,6 @@ public class QMUIQQFaceView extends View {
         int widthSize = MeasureSpec.getSize(widthMeasureSpec);
         int heightSize = MeasureSpec.getSize(heightMeasureSpec);
 
-        Log.i(TAG, "widthSize = " + widthSize + "; heightSize = " + heightSize);
-
         mLines = 0;
         mParagraphShowCount = 0;
         int width, height;
@@ -889,7 +883,7 @@ public class QMUIQQFaceView extends View {
                 break;
         }
         setMeasuredDimension(width, height);
-        Log.i(TAG, "mLines = " + mLines + " ; width = " + width + " ; height = "
+        Log.v(TAG, "mLines = " + mLines + " ; width = " + width + " ; height = "
                 + height + " ; maxLine = " + maxLine + "; measure time = "
                 + (System.currentTimeMillis() - start));
     }
@@ -908,7 +902,7 @@ public class QMUIQQFaceView extends View {
         setStartDrawUsedWidth(getPaddingLeft(), getWidth() - getPaddingLeft() - getPaddingRight());
         mIsExecutedMiddleEllipsize = false;
         drawElements(canvas, elements, getWidth() - getPaddingLeft() - getPaddingRight());
-        Log.i(TAG, "onDraw spend time = " + (System.currentTimeMillis() - start));
+        Log.v(TAG, "onDraw spend time = " + (System.currentTimeMillis() - start));
     }
 
     private void pickTextPaintColor() {
@@ -1337,7 +1331,7 @@ public class QMUIQQFaceView extends View {
     }
 
     private void onDrawQQFace(Canvas canvas, int res, @Nullable Drawable specialDrawable, int widthStart, int widthEnd, boolean isFirst, boolean isLast) {
-        int size = res != -1 || specialDrawable == null ? mQQFaceSize : specialDrawable.getIntrinsicWidth() + (isFirst || isLast ? mSpecialDrawablePadding : mSpecialDrawablePadding * 2);
+        int size = res != 0 || specialDrawable == null ? mQQFaceSize : specialDrawable.getIntrinsicWidth() + (isFirst || isLast ? mSpecialDrawablePadding : mSpecialDrawablePadding * 2);
         if (mIsNeedEllipsize) {
             if (mEllipsize == TextUtils.TruncateAt.START) {
                 if (mCurrentDrawLine > mLines - mNeedDrawLine) {
@@ -1496,7 +1490,7 @@ public class QMUIQQFaceView extends View {
         }
         int top = getPaddingTop();
         if (line > 1) {
-            top = (line - 1) * (mFontHeight + mLineSpace) + top;
+            top = mCurrentDrawBaseLine - mFirstBaseLine;
         }
         canvas.save();
         canvas.translate(mCurrentDrawUsedWidth, top);

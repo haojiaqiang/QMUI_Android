@@ -18,41 +18,64 @@ package com.qmuiteam.qmui.widget.dialog;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.view.LayoutInflater;
 import android.view.Window;
 
+import com.qmuiteam.qmui.skin.QMUISkinLayoutInflaterFactory;
 import com.qmuiteam.qmui.skin.QMUISkinManager;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatDialog;
+import androidx.core.view.LayoutInflaterCompat;
 
 public class QMUIBaseDialog extends AppCompatDialog {
     boolean cancelable = true;
     private boolean canceledOnTouchOutside = true;
     private boolean canceledOnTouchOutsideSet;
-    private boolean mFollowSkin = false;
+    private QMUISkinManager mSkinManager = null;
 
     public QMUIBaseDialog(@NonNull Context context, int themeResId) {
         super(context, themeResId);
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
     }
 
-
-    public void setFollowSkin(boolean followSkin) {
-        mFollowSkin = followSkin;
+    public void setSkinManager(@Nullable QMUISkinManager skinManager) {
+        if(mSkinManager != null){
+            mSkinManager.unRegister(this);
+        }
+        mSkinManager = skinManager;
+        if(isShowing() && skinManager != null){
+            mSkinManager.register(this);
+        }
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        if (mFollowSkin) {
-            QMUISkinManager.defaultInstance(getContext()).register(this);
+        if (mSkinManager != null) {
+            mSkinManager.register(this);
         }
+    }
+
+    @NonNull
+    @Override
+    public LayoutInflater getLayoutInflater() {
+        LayoutInflater layoutInflater = super.getLayoutInflater();
+        LayoutInflater.Factory2 factory2 = layoutInflater.getFactory2();
+        if(factory2 instanceof QMUISkinLayoutInflaterFactory){
+            LayoutInflaterCompat.setFactory2(layoutInflater,
+                    ((QMUISkinLayoutInflaterFactory)factory2).cloneForLayoutInflaterIfNeeded(layoutInflater));
+        }
+        return layoutInflater;
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        QMUISkinManager.defaultInstance(getContext()).unRegister(this);
+        if (mSkinManager != null) {
+            mSkinManager.unRegister(this);
+        }
     }
 
     @Override

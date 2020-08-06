@@ -19,6 +19,7 @@ import android.view.LayoutInflater
 import android.view.View
 import butterknife.BindView
 import butterknife.ButterKnife
+import com.qmuiteam.qmui.arch.effect.MapEffect
 import com.qmuiteam.qmui.kotlin.onClick
 import com.qmuiteam.qmui.kotlin.skin
 import com.qmuiteam.qmui.widget.QMUITopBarLayout
@@ -46,9 +47,9 @@ class QDButtonFragment : BaseFragment() {
         initTopBar()
 
         kotlinSkinButton.skin {
-            it.border(R.attr.app_skin_btn_test_border_single)
-            it.background(R.attr.app_skin_btn_test_bg_single)
-            it.textColor(R.attr.app_skin_btn_test_border_single)
+            border(R.attr.app_skin_btn_test_border_single)
+            background(R.attr.app_skin_btn_test_bg_single)
+            textColor(R.attr.app_skin_btn_test_border_single)
         }
         return view
     }
@@ -56,5 +57,11 @@ class QDButtonFragment : BaseFragment() {
     private fun initTopBar() {
         mTopBar.addLeftBackImageButton().onClick { popBackStack() }
         mTopBar.setTitle(mQDItemDescription.name)
+
+
+        notifyEffect(MapEffect(HashMap<String, Any>().apply {
+            put("interested_type_key", 1)
+            put("interested_value_key", "Did you received the change from other fragment?")
+        }))
     }
 }
